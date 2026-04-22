@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="cosmic">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>N-Body HPC · Gravitational Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&family=Exo+2:wght@300;400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ═══ THEMES ═════════════════════════════════════════════════════════ */
+:root,[data-theme="cosmic"]{
+  --bg:         #060811;
+  --bg2:        #0a0e1a;
+  --bg3:        #0f1525;
+  --bg4:        #161e30;
+  --border:     rgba(80,120,255,0.18);
+  --border2:    rgba(80,120,255,0.35);
+  --a1:         #4f8eff;
+  --a2:         #a855f7;
+  --a3:         #06ffa5;
+  --a4:         #ff6b6b;
+  --a5:         #ffd93d;
+  --text:       #e2e8ff;
+  --muted:      #4a5878;
+  --muted2:     #6b7fa8;
+  --glow1:      0 0 24px rgba(79,142,255,0.4);
+  --glow2:      0 0 24px rgba(168,85,247,0.4);
+  --glow3:      0 0 24px rgba(6,255,165,0.3);
+  --card-bg:    rgba(10,14,26,0.85);
+  --star-color: rgba(255,255,255,0.7);
+}
+[data-theme="nebula"]{
+  --bg:#0a0612; --bg2:#100818; --bg3:#160a20; --bg4:#1e1028;
+  --border:rgba(200,80,255,0.18); --border2:rgba(200,80,255,0.35);
+  --a1:#c850ff; --a2:#ff50a8; --a3:#50ffcc; --a4:#ffaa50; --a5:#50aaff;
+  --text:#f0e2ff; --muted:#4a3860; --muted2:#7a5890;
+  --glow1:0 0 24px rgba(200,80,255,0.4); --glow2:0 0 24px rgba(255,80,168,0.4);
+  --card-bg:rgba(10,6,18,0.85);
+}
+[data-theme="solar"]{
+  --bg:#0c0900; --bg2:#130f00; --bg3:#1a1500; --bg4:#221c00;
+  --border:rgba(255,180,0,0.2); --border2:rgba(255,180,0,0.4);
+  --a1:#ffb800; --a2:#ff6400; --a3:#00ffb8; --a4:#ff3264; --a5:#c8ff00;
+  --text:#fff8e0; --muted:#4a3e00; --muted2:#7a6800;
+  --glow1:0 0 24px rgba(255,184,0,0.5); --glow2:0 0 24px rgba(255,100,0,0.4);
+  --card-bg:rgba(12,9,0,0.85);
+}
+[data-theme="arctic"]{
+  --bg:#f0f4ff; --bg2:#e8eeff; --bg3:#dde4f8; --bg4:#d0d9f0;
+  --border:rgba(60,100,200,0.15); --border2:rgba(60,100,200,0.3);
+  --a1:#3c64c8; --a2:#8050d0; --a3:#00aa78; --a4:#e03050; --a5:#c08000;
+  --text:#1a2040; --muted:#8090b8; --muted2:#5060a0;
+  --glow1:0 0 16px rgba(60,100,200,0.2); --glow2:0 0 16px rgba(128,80,208,0.2);
+  --card-bg:rgba(240,244,255,0.9); --star-color:rgba(60,100,200,0.3);
+}
+[data-theme="matrix"]{
+  --bg:#000800; --bg2:#000f00; --bg3:#001500; --bg4:#001c00;
+  --border:rgba(0,255,65,0.2); --border2:rgba(0,255,65,0.4);
+  --a1:#00ff41; --a2:#00cc33; --a3:#88ff00; --a4:#ff4400; --a5:#ffff00;
+  --text:#ccffcc; --muted:#003300; --muted2:#005500;
+  --glow1:0 0 24px rgba(0,255,65,0.5); --glow2:0 0 24px rgba(0,200,50,0.4);
+  --card-bg:rgba(0,8,0,0.92);
+}
+
+/* ═══ RESET & BASE ═══════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;scroll-behavior:smooth}
+body{
+  font-family:'Exo 2',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+  position:relative;
+}
+/* star field */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:
+    radial-gradient(circle at 20% 30%, var(--a1) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 80% 10%, var(--star-color,rgba(255,255,255,0.7)) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 50% 70%, var(--star-color,rgba(255,255,255,0.7)) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 10% 80%, var(--star-color,rgba(255,255,255,0.7)) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 90% 60%, var(--a2) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 40% 20%, var(--star-color,rgba(255,255,255,0.7)) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 70% 85%, var(--star-color,rgba(255,255,255,0.7)) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 60% 45%, var(--a3) 0.5px, transparent 0.5px);
+  background-size:200px 200px,150px 150px,180px 180px,120px 120px,
+                  160px 160px,140px 140px,190px 190px,170px 170px;
+  opacity:0.5;
+  pointer-events:none;
+  z-index:0;
+  animation:starDrift 80s linear infinite;
+}
+@keyframes starDrift{0%{background-position:0 0}100%{background-position:200px 200px}}
+
+/* ═══ LAYOUT ══════════════════════════════════════════════════════════ */
+.shell{
+  display:grid;
+  grid-template-rows:64px 1fr;
+  min-height:100vh;
+  position:relative;z-index:1;
+}
+/* ─── Topbar ─────────────────────────────────────────────────────── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;
+  background:linear-gradient(90deg, var(--bg2) 0%, rgba(10,14,26,0.6) 100%);
+  border-bottom:1px solid var(--border2);
+  backdrop-filter:blur(20px);
+  position:sticky;top:0;z-index:100;
+  animation:slideDown .5s ease;
+}
+@keyframes slideDown{from{transform:translateY(-64px);opacity:0}to{transform:none;opacity:1}}
+
+.logo{
+  display:flex;align-items:center;gap:12px;
+  font-family:'Orbitron',monospace;font-size:15px;font-weight:900;
+  letter-spacing:3px;color:var(--a1);
+  text-shadow:var(--glow1);
+}
+.logo-icon{
+  width:36px;height:36px;border-radius:50%;
+  background:conic-gradient(var(--a1),var(--a2),var(--a3),var(--a1));
+  animation:spin 4s linear infinite;
+  flex-shrink:0;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.logo sub{color:var(--muted2);font-size:9px;letter-spacing:2px;display:block;font-family:'JetBrains Mono',monospace;font-weight:300}
+
+.topbar-center{display:flex;gap:8px;align-items:center}
+.status-badge{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 14px;border-radius:999px;
+  border:1px solid var(--border2);
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:var(--bg3);transition:all .3s;
+}
+.status-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:all .3s}
+.status-badge.running .dot{background:var(--a3);box-shadow:0 0 8px var(--a3);animation:blink .8s infinite}
+.status-badge.error .dot{background:var(--a4);box-shadow:0 0 8px var(--a4)}
+.status-badge.done .dot{background:var(--a3);box-shadow:0 0 12px var(--a3)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.topbar-right{display:flex;gap:10px;align-items:center}
+
+/* theme picker */
+.theme-picker{display:flex;gap:4px;padding:4px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)}
+.theme-dot{
+  width:18px;height:18px;border-radius:50%;cursor:pointer;
+  transition:transform .2s,box-shadow .2s;border:2px solid transparent;
+}
+.theme-dot:hover{transform:scale(1.2)}
+.theme-dot.active{border-color:var(--text);box-shadow:0 0 8px currentColor}
+.td-cosmic{background:linear-gradient(135deg,#4f8eff,#a855f7)}
+.td-nebula{background:linear-gradient(135deg,#c850ff,#ff50a8)}
+.td-solar {background:linear-gradient(135deg,#ffb800,#ff6400)}
+.td-arctic{background:linear-gradient(135deg,#3c64c8,#8050d0)}
+.td-matrix{background:linear-gradient(135deg,#00ff41,#00cc33)}
+
+/* ─── Main grid ──────────────────────────────────────────────────── */
+.main{
+  display:grid;
+  grid-template-columns:300px 1fr;
+  gap:0;
+  min-height:calc(100vh - 64px);
+}
+
+/* ─── Sidebar ────────────────────────────────────────────────────── */
+.sidebar{
+  background:var(--card-bg);
+  border-right:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  padding:20px 16px;
+  overflow-y:auto;
+  display:flex;flex-direction:column;gap:18px;
+  animation:slideLeft .5s ease;
+}
+@keyframes slideLeft{from{transform:translateX(-300px);opacity:0}to{transform:none;opacity:1}}
+
+.sec-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px;letter-spacing:3px;color:var(--muted2);
+  text-transform:uppercase;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;
+}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* fields */
+.field{margin-bottom:14px}
+.field label{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;color:var(--muted2);margin-bottom:6px;
+  font-family:'JetBrains Mono',monospace;
+}
+.field label .lval{color:var(--a1);font-weight:600}
+input[type=range]{
+  width:100%;-webkit-appearance:none;
+  height:4px;border-radius:2px;
+  background:linear-gradient(90deg,var(--a1) var(--pct,50%),var(--bg4) var(--pct,50%));
+  outline:none;cursor:pointer;border:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+  background:var(--a1);cursor:pointer;
+  box-shadow:0 0 8px var(--a1);transition:transform .15s;
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.3)}
+select,input[type=number]{
+  width:100%;background:var(--bg3);border:1px solid var(--border2);
+  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;
+  padding:8px 12px;border-radius:6px;outline:none;transition:border-color .2s;
+}
+select:focus,input[type=number]:focus{border-color:var(--a1);box-shadow:var(--glow1)}
+
+/* buttons */
+.btn{
+  width:100%;padding:11px 16px;border-radius:8px;
+  font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;
+  cursor:pointer;border:1.5px solid;transition:all .2s;
+  text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:8px;
+  position:relative;overflow:hidden;
+}
+.btn::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.06) 50%,transparent 70%);
+  transform:translateX(-100%);transition:transform .4s;
+}
+.btn:hover::before{transform:translateX(100%)}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+
+.btn-run{
+  background:linear-gradient(135deg,rgba(79,142,255,0.15),rgba(168,85,247,0.15));
+  border-color:var(--a1);color:var(--a1);
+  box-shadow:var(--glow1);margin-bottom:8px;
+}
+.btn-run:hover{background:linear-gradient(135deg,rgba(79,142,255,0.3),rgba(168,85,247,0.3));box-shadow:0 0 32px rgba(79,142,255,0.6)}
+.btn-run.pulse{animation:btnPulse 1s ease infinite}
+@keyframes btnPulse{0%,100%{box-shadow:var(--glow1)}50%{box-shadow:0 0 40px rgba(79,142,255,0.8)}}
+
+.btn-stop{background:rgba(255,107,107,0.1);border-color:var(--a4);color:var(--a4);margin-bottom:8px}
+.btn-stop:hover{background:rgba(255,107,107,0.2);box-shadow:0 0 24px rgba(255,107,107,0.4)}
+
+.btn-clear{background:rgba(255,217,61,0.1);border-color:var(--a5);color:var(--a5);font-size:10px;padding:8px}
+.btn-clear:hover{background:rgba(255,217,61,0.2)}
+
+/* mini stat cards */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;transition:border-color .3s,box-shadow .3s;
+}
+.stat-card:hover{border-color:var(--border2);box-shadow:var(--glow1)}
+.stat-card .sl{font-size:10px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-bottom:5px}
+.stat-card .sv{font-size:16px;font-weight:600;font-family:'Orbitron',monospace;transition:all .5s}
+.c1{color:var(--a1)}.c2{color:var(--a2)}.c3{color:var(--a3)}.c4{color:var(--a4)}.c5{color:var(--a5)}
+
+/* progress bar */
+.progress-wrap{margin-top:8px}
+.progress-label{display:flex;justify-content:space-between;font-size:10px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-bottom:4px}
+.progress-bar{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.progress-fill{
+  height:100%;border-radius:2px;
+  background:linear-gradient(90deg,var(--a1),var(--a2),var(--a3));
+  background-size:200% 100%;
+  width:0%;transition:width .5s ease;
+  animation:gradShift 3s linear infinite;
+}
+@keyframes gradShift{0%{background-position:0%}100%{background-position:200%}}
+
+/* ─── Panel ──────────────────────────────────────────────────────── */
+.panel{
+  padding:20px 24px;
+  overflow-y:auto;
+  display:flex;flex-direction:column;gap:16px;
+  animation:fadeIn .6s ease .1s both;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* info row */
+.info-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.info-card{
+  background:var(--card-bg);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;backdrop-filter:blur(10px);
+  transition:transform .2s,box-shadow .2s,border-color .2s;
+  animation:popIn .4s ease both;
+}
+.info-card:hover{transform:translateY(-2px);box-shadow:var(--glow1);border-color:var(--border2)}
+@keyframes popIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+.info-card:nth-child(1){animation-delay:.05s}
+.info-card:nth-child(2){animation-delay:.1s}
+.info-card:nth-child(3){animation-delay:.15s}
+.info-card:nth-child(4){animation-delay:.2s}
+.info-card:nth-child(5){animation-delay:.25s}
+.info-card .il{font-size:10px;color:var(--muted2);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.info-card .iv{font-size:22px;font-weight:800;font-family:'Orbitron',monospace;line-height:1.1;transition:all .5s}
+.info-card .isub{font-size:10px;color:var(--muted);margin-top:4px;font-family:'JetBrains Mono',monospace}
+
+/* tab system */
+.tabs{display:flex;gap:2px;padding:0 0 0 2px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab{
+  padding:9px 18px;font-size:11px;font-family:'JetBrains Mono',monospace;
+  letter-spacing:1px;cursor:pointer;color:var(--muted2);
+  border-bottom:2px solid transparent;transition:all .2s;
+  text-transform:uppercase;position:relative;
+}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--a1);border-bottom-color:var(--a1)}
+.tab.active::after{
+  content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;
+  background:var(--a1);box-shadow:0 0 8px var(--a1);
+}
+.pane{display:none;flex-direction:column;gap:14px;padding-top:14px}
+.pane.active{display:flex;animation:fadeIn .3s ease}
+
+/* chart card */
+.chart-card{
+  background:var(--card-bg);border:1px solid var(--border);border-radius:10px;
+  padding:16px 20px;backdrop-filter:blur(10px);
+}
+.chart-card h3{
+  font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted2);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;
+  display:flex;align-items:center;gap:8px;
+}
+.chart-card h3 .dot3{width:8px;height:8px;border-radius:50%;background:var(--a1);box-shadow:0 0 6px var(--a1)}
+.chart-wrap{position:relative;height:210px}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+
+/* galaxy canvas */
+#galaxy-canvas{
+  width:100%;height:320px;border-radius:10px;
+  background:radial-gradient(ellipse at center, rgba(30,20,60,0.8) 0%, var(--bg) 100%);
+  border:1px solid var(--border);display:block;cursor:crosshair;
+}
+
+/* terminal */
+.terminal-wrap{
+  background:#000;border:1px solid var(--border);border-radius:10px;overflow:hidden;
+}
+.terminal-bar{
+  display:flex;align-items:center;gap:8px;padding:8px 14px;
+  background:var(--bg3);border-bottom:1px solid var(--border);
+}
+.tbar-dot{width:10px;height:10px;border-radius:50%}
+.td1{background:#ff5f57}.td2{background:#febc2e}.td3{background:#28c840}
+.terminal{
+  font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.75;
+  padding:14px 16px;height:320px;overflow-y:auto;color:#7dd3fc;
+}
+.terminal::-webkit-scrollbar{width:3px}
+.terminal::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.t-cmd{color:var(--a3)}.t-step{color:#e2e8ff}.t-err{color:var(--a4)}.t-done{color:var(--a3)}
+.t-info{color:var(--a5)}.t-stop{color:var(--a2)}.t-muted{color:var(--muted2)}
+
+/* data table */
+.data-wrap{overflow-x:auto;max-height:350px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:11px}
+thead th{
+  position:sticky;top:0;background:var(--bg3);
+  padding:8px 12px;color:var(--muted2);font-weight:400;
+  text-align:left;border-bottom:1px solid var(--border2);
+  white-space:nowrap;
+}
+tbody td{padding:6px 12px;border-bottom:1px solid var(--border);transition:background .15s}
+tbody tr:hover td{background:var(--bg3)}
+tbody tr:nth-child(even) td{background:rgba(255,255,255,0.01)}
+
+/* performance bars */
+.perf-bars{display:flex;flex-direction:column;gap:10px}
+.perf-row{display:flex;align-items:center;gap:12px;font-family:'JetBrains Mono',monospace;font-size:11px}
+.perf-label{width:100px;color:var(--muted2);flex-shrink:0}
+.perf-bar-wrap{flex:1;height:20px;background:var(--bg4);border-radius:4px;overflow:hidden;position:relative}
+.perf-bar-fill{height:100%;border-radius:4px;transition:width 1s ease;position:relative;overflow:hidden}
+.perf-bar-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent);
+  animation:shimmer 2s infinite;
+}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.perf-val{width:70px;text-align:right;color:var(--text)}
+
+/* ═══ POPUP / MODAL ══════════════════════════════════════════════════ */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);
+  display:flex;align-items:center;justify-content:center;
+  z-index:1000;opacity:0;pointer-events:none;transition:opacity .3s;
+  backdrop-filter:blur(8px);
+}
+.modal-overlay.show{opacity:1;pointer-events:auto}
+.modal{
+  background:var(--bg2);border:1px solid var(--border2);border-radius:16px;
+  padding:32px;max-width:440px;width:90%;
+  transform:scale(.85) translateY(20px);transition:transform .3s;
+  box-shadow:0 0 60px rgba(0,0,0,0.6),var(--glow1);
+  position:relative;overflow:hidden;
+}
+.modal::before{
+  content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
+  background:conic-gradient(transparent 270deg,var(--a1) 360deg);
+  animation:borderSpin 3s linear infinite;opacity:0.15;
+}
+@keyframes borderSpin{to{transform:rotate(360deg)}}
+.modal-overlay.show .modal{transform:scale(1) translateY(0)}
+.modal-icon{font-size:48px;text-align:center;margin-bottom:16px;animation:bounceIn .5s ease}
+@keyframes bounceIn{0%{transform:scale(0)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+.modal-title{font-family:'Orbitron',monospace;font-size:18px;font-weight:700;text-align:center;color:var(--a1);margin-bottom:8px}
+.modal-sub{font-size:13px;color:var(--muted2);text-align:center;margin-bottom:20px;font-family:'JetBrains Mono',monospace}
+.modal-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px}
+.modal-stat{background:var(--bg3);border-radius:8px;padding:10px 14px;border:1px solid var(--border)}
+.modal-stat .msl{font-size:10px;color:var(--muted2);font-family:'JetBrains Mono',monospace}
+.modal-stat .msv{font-size:15px;font-weight:600;color:var(--a3);font-family:'Orbitron',monospace}
+.modal-close{
+  width:100%;padding:10px;border-radius:8px;
+  background:linear-gradient(135deg,rgba(79,142,255,0.2),rgba(168,85,247,0.2));
+  border:1px solid var(--a1);color:var(--a1);
+  font-family:'Orbitron',monospace;font-size:11px;letter-spacing:2px;
+  cursor:pointer;transition:all .2s;
+}
+.modal-close:hover{background:linear-gradient(135deg,rgba(79,142,255,0.35),rgba(168,85,247,0.35));box-shadow:var(--glow1)}
+
+/* confetti particles */
+.confetti{position:fixed;pointer-events:none;z-index:2000}
+.c-particle{
+  position:absolute;width:8px;height:8px;border-radius:2px;
+  animation:confettiFall 3s ease-in forwards;
+}
+@keyframes confettiFall{
+  0%{transform:translateY(-20px) rotate(0deg);opacity:1}
+  100%{transform:translateY(100vh) rotate(720deg);opacity:0}
+}
+
+/* error modal */
+.modal.error-modal{border-color:var(--a4)}
+.modal.error-modal .modal-title{color:var(--a4)}
+.modal.error-modal::before{background:conic-gradient(transparent 270deg,var(--a4) 360deg)}
+
+/* ═══ SCROLLBAR ══════════════════════════════════════════════════════ */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ═══ RESPONSIVE ═════════════════════════════════════════════════════ */
+@media(max-width:1100px){
+  .main{grid-template-columns:260px 1fr}
+  .info-row{grid-template-columns:repeat(3,1fr)}
+  .chart-row{grid-template-columns:1fr}
+}
+@media(max-width:800px){
+  .main{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .sidebar{border-right:none;border-bottom:1px solid var(--border)}
+  .info-row{grid-template-columns:repeat(2,1fr)}
+}
+
+/* ═══ TOOLTIP ════════════════════════════════════════════════════════ */
+[data-tip]{position:relative}
+[data-tip]:hover::after{
+  content:attr(data-tip);position:absolute;bottom:120%;left:50%;
+  transform:translateX(-50%);background:var(--bg4);color:var(--text);
+  font-size:10px;padding:4px 8px;border-radius:4px;white-space:nowrap;
+  border:1px solid var(--border2);font-family:'JetBrains Mono',monospace;
+  z-index:10;pointer-events:none;
+}
+
+/* number ticker animation */
+@keyframes numTick{0%{transform:translateY(-8px);opacity:0}100%{transform:none;opacity:1}}
+.tick{animation:numTick .3s ease}
+</style>
+</head>
+<body>
+
+<!-- ══ POPUPS ══════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-success">
+  <div class="modal">
+    <div class="modal-icon">🌌</div>
+    <div class="modal-title">SIMULATION COMPLETE</div>
+    <div class="modal-sub" id="modal-sub-text">All steps executed successfully</div>
+    <div class="modal-stats" id="modal-stats"></div>
+    <button class="modal-close" onclick="closeModal('modal-success')">CLOSE  ✕</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-error">
+  <div class="modal error-modal">
+    <div class="modal-icon">⚠️</div>
+    <div class="modal-title">SIMULATION ERROR</div>
+    <div class="modal-sub" id="modal-error-text">An error occurred</div>
+    <button class="modal-close" style="border-color:var(--a4);color:var(--a4)" onclick="closeModal('modal-error')">DISMISS  ✕</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-stopped">
+  <div class="modal">
+    <div class="modal-icon">⏹️</div>
+    <div class="modal-title">SIMULATION STOPPED</div>
+    <div class="modal-sub">Process terminated by user request</div>
+    <button class="modal-close" onclick="closeModal('modal-stopped')">OK  ✕</button>
+  </div>
+</div>
+
+<div class="confetti" id="confetti"></div>
+
+<!-- ══ SHELL ═══════════════════════════════════════════════════════ -->
+<div class="shell">
+
+  <!-- ─── topbar ─── -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-icon"></div>
+      <div>
+        N-BODY HPC
+        <sub>GRAVITATIONAL SIMULATOR</sub>
+      </div>
+    </div>
+    <div class="topbar-center">
+      <div class="status-badge" id="status-badge"><div class="dot"></div><span id="status-txt">IDLE</span></div>
+      <div class="status-badge" id="binary-badge" data-tip="Build status of nbody binary">
+        <span id="binary-txt">BINARY: CHECKING…</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="theme-picker" data-tip="Change theme">
+        <div class="theme-dot td-cosmic active" onclick="setTheme('cosmic')" title="Cosmic"></div>
+        <div class="theme-dot td-nebula"  onclick="setTheme('nebula')"  title="Nebula"></div>
+        <div class="theme-dot td-solar"   onclick="setTheme('solar')"   title="Solar"></div>
+        <div class="theme-dot td-arctic"  onclick="setTheme('arctic')"  title="Arctic"></div>
+        <div class="theme-dot td-matrix"  onclick="setTheme('matrix')"  title="Matrix"></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <!-- ─── sidebar ─── -->
+    <aside class="sidebar">
+
+      <!-- params -->
+      <div>
+        <div class="sec-label">Simulation Parameters</div>
+        <div class="field">
+          <label>BODIES (N) <span class="lval" id="n-lbl">5,000</span></label>
+          <input type="range" id="sl-n" min="100" max="20000" step="100" value="5000" oninput="sliderUpdate(this,'n-lbl',v=>v.toLocaleString(),'#sl-n')">
+        </div>
+        <div class="field">
+          <label>TIME STEPS <span class="lval" id="steps-lbl">200</span></label>
+          <input type="range" id="sl-steps" min="20" max="1000" step="10" value="200" oninput="sliderUpdate(this,'steps-lbl',v=>v,'#sl-steps')">
+        </div>
+        <div class="field">
+          <label>TIMESTEP Δt <span class="lval" id="dt-lbl">0.005</span></label>
+          <input type="range" id="sl-dt" min="1" max="20" step="1" value="5" oninput="dtUpdate(this)">
+        </div>
+        <div class="field">
+          <label>MPI PROCESSES <span class="lval" id="np-lbl">1</span></label>
+          <input type="range" id="sl-np" min="1" max="4" step="1" value="1" oninput="sliderUpdate(this,'np-lbl',v=>v,'#sl-np')">
+        </div>
+        <div class="field">
+          <label>INITIAL CONDITION</label>
+          <select id="sel-ic">
+            <option value="0">🌀 Plummer Sphere</option>
+            <option value="1">💫 Rotating Disk</option>
+            <option value="2">💥 Galaxy Collision</option>
+            <option value="3">🎲 Uniform Random</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>SOFTENING ε</label>
+          <select id="sel-soft">
+            <option value="0">Standard (0.025)</option>
+            <option value="1">Fine (0.01)</option>
+            <option value="2">Coarse (0.05)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- actions -->
+      <div>
+        <div class="sec-label">Controls</div>
+        <button class="btn btn-run" id="btn-run" onclick="startSim()">
+          <span>▶</span> RUN SIMULATION
+        </button>
+        <button class="btn btn-stop" id="btn-stop" onclick="stopSim()" disabled>
+          <span>■</span> STOP
+        </button>
+        <button class="btn btn-clear" onclick="clearAll()">
+          ✕ CLEAR RESULTS
+        </button>
+        <div class="progress-wrap">
+          <div class="progress-label">
+            <span>Progress</span><span id="prog-pct">0%</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
+        </div>
+      </div>
+
+      <!-- live stats -->
+      <div>
+        <div class="sec-label">Live Stats</div>
+        <div class="stat-grid">
+          <div class="stat-card" data-tip="Force kernel GFLOPS">
+            <div class="sl">GFLOPS</div>
+            <div class="sv c1" id="s-gflops">—</div>
+          </div>
+          <div class="stat-card" data-tip="Current simulation step">
+            <div class="sl">STEP</div>
+            <div class="sv c2" id="s-step">—</div>
+          </div>
+          <div class="stat-card" data-tip="Energy conservation drift %">
+            <div class="sl">DRIFT</div>
+            <div class="sv c3" id="s-drift">—</div>
+          </div>
+          <div class="stat-card" data-tip="Compute mode">
+            <div class="sl">MODE</div>
+            <div class="sv c5" id="s-mode">—</div>
+          </div>
+          <div class="stat-card" data-tip="Time elapsed">
+            <div class="sl">ELAPSED</div>
+            <div class="sv c4" id="s-elapsed">0s</div>
+          </div>
+          <div class="stat-card" data-tip="Bodies × steps processed">
+            <div class="sl">PAIRS/STEP</div>
+            <div class="sv c1" id="s-pairs">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- hardware info -->
+      <div>
+        <div class="sec-label">Hardware</div>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="sl">GPU</div>
+            <div class="sv c3" id="s-gpu" style="font-size:12px">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="sl">MPI RANKS</div>
+            <div class="sv c2" id="s-ranks">1</div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ─── main panel ─── -->
+    <main class="panel">
+
+      <!-- info row -->
+      <div class="info-row">
+        <div class="info-card">
+          <div class="il">Total Bodies</div>
+          <div class="iv c1" id="ic-n">5,000</div>
+          <div class="isub">Plummer sphere</div>
+        </div>
+        <div class="info-card">
+          <div class="il">Peak GFLOPS</div>
+          <div class="iv c3" id="ic-gflops">—</div>
+          <div class="isub">Force kernel</div>
+        </div>
+        <div class="info-card">
+          <div class="il">Energy Drift</div>
+          <div class="iv c5" id="ic-drift">—</div>
+          <div class="isub">Conservation %</div>
+        </div>
+        <div class="info-card">
+          <div class="il">Sim Time</div>
+          <div class="iv c2" id="ic-simtime">0.000</div>
+          <div class="isub">N-body units</div>
+        </div>
+        <div class="info-card">
+          <div class="il">Total Steps</div>
+          <div class="iv c4" id="ic-steps">200</div>
+          <div class="isub">Leapfrog</div>
+        </div>
+      </div>
+
+      <!-- tabs -->
+      <div>
+        <div class="tabs">
+          <span class="tab active" onclick="setTab(0)">🌌 Galaxy</span>
+          <span class="tab" onclick="setTab(1)">⚡ Energy</span>
+          <span class="tab" onclick="setTab(2)">↗ Momentum</span>
+          <span class="tab" onclick="setTab(3)">🚀 Performance</span>
+          <span class="tab" onclick="setTab(4)">💻 Terminal</span>
+          <span class="tab" onclick="setTab(5)">📊 Data Table</span>
+          <span class="tab" onclick="setTab(6)">🔬 Analysis</span>
+        </div>
+
+        <!-- pane 0: galaxy view -->
+        <div class="pane active" id="pane-0">
+          <div class="chart-card">
+            <h3><div class="dot3"></div>REAL-TIME BODY TRAJECTORIES — XY PLANE</h3>
+            <canvas id="galaxy-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- pane 1: energy -->
+        <div class="pane" id="pane-1">
+          <div class="chart-row">
+            <div class="chart-card">
+              <h3><div class="dot3"></div>KINETIC / POTENTIAL / TOTAL ENERGY</h3>
+              <div class="chart-wrap"><canvas id="chart-energy"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <h3><div class="dot3"></div>TOTAL ENERGY DEVIATION (conservation)</h3>
+              <div class="chart-wrap"><canvas id="chart-te-dev"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- pane 2: momentum -->
+        <div class="pane" id="pane-2">
+          <div class="chart-card">
+            <h3><div class="dot3"></div>LINEAR MOMENTUM COMPONENTS</h3>
+            <div class="chart-wrap"><canvas id="chart-mom"></canvas></div>
+          </div>
+        </div>
+
+        <!-- pane 3: performance -->
+        <div class="pane" id="pane-3">
+          <div class="chart-card" style="margin-bottom:14px">
+            <h3><div class="dot3"></div>GFLOPS OVER TIME</h3>
+            <div class="chart-wrap"><canvas id="chart-perf"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h3><div class="dot3"></div>PERFORMANCE BREAKDOWN</h3>
+            <div class="perf-bars" id="perf-bars">
+              <div class="perf-row">
+                <div class="perf-label">Force Kernel</div>
+                <div class="perf-bar-wrap"><div class="perf-bar-fill" id="pb-force" style="width:0%;background:linear-gradient(90deg,var(--a1),var(--a2))"></div></div>
+                <div class="perf-val" id="pv-force">—</div>
+              </div>
+              <div class="perf-row">
+                <div class="perf-label">MPI Comm</div>
+                <div class="perf-bar-wrap"><div class="perf-bar-fill" id="pb-comm" style="width:0%;background:linear-gradient(90deg,var(--a3),var(--a5))"></div></div>
+                <div class="perf-val" id="pv-comm">—</div>
+              </div>
+              <div class="perf-row">
+                <div class="perf-label">Integration</div>
+                <div class="perf-bar-wrap"><div class="perf-bar-fill" id="pb-int" style="width:0%;background:linear-gradient(90deg,var(--a5),var(--a4))"></div></div>
+                <div class="perf-val" id="pv-int">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- pane 4: terminal -->
+        <div class="pane" id="pane-4">
+          <div class="terminal-wrap">
+            <div class="terminal-bar">
+              <div class="tbar-dot td1"></div>
+              <div class="tbar-dot td2"></div>
+              <div class="tbar-dot td3"></div>
+              <span style="flex:1;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted2);margin-left:8px">bash — nbody stdout</span>
+              <button onclick="clearTerm()" style="background:none;border:1px solid var(--border);color:var(--muted2);font-size:10px;padding:2px 8px;border-radius:4px;cursor:pointer;font-family:'JetBrains Mono',monospace">CLEAR</button>
+            </div>
+            <div class="terminal" id="terminal">
+              <span class="t-muted">Awaiting simulation start…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- pane 5: data table -->
+        <div class="pane" id="pane-5">
+          <div class="chart-card" style="padding:0">
+            <div class="data-wrap">
+              <table id="data-table">
+                <thead>
+                  <tr>
+                    <th>Step</th><th>Sim Time</th><th>KE</th><th>PE</th>
+                    <th>Total E</th><th>Mom X</th><th>Mom Y</th><th>GFLOPS</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body">
+                  <tr><td colspan="8" style="padding:24px;color:var(--muted2);text-align:center">Run a simulation to see data</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- pane 6: analysis -->
+        <div class="pane" id="pane-6">
+          <div class="chart-row">
+            <div class="chart-card">
+              <h3><div class="dot3"></div>PHASE SPACE (KE vs PE)</h3>
+              <div class="chart-wrap"><canvas id="chart-phase"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <h3><div class="dot3"></div>VIRIAL RATIO (2KE / |PE|)</h3>
+              <div class="chart-wrap"><canvas id="chart-virial"></canvas></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /tabs -->
+    </main>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   CONFIG & STATE
+═══════════════════════════════════════════════════════════ */
+const API = 'http://localhost:5050/api';
+let simRunning  = false;
+let logOffset   = 0;
+let pollTimer   = null;
+let elapsedTimer= null;
+let elapsedSec  = 0;
+let totalSteps  = 200;
+let lastResults = [];
+let trails      = {};   /* body trails for galaxy canvas */
+let maxTrail    = 150;
+let charts      = {};
+let activeTab   = 0;
+let userStopped = false;
+
+/* ═══ THEME ══════════════════════════════════════════════ */
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.querySelectorAll('.theme-dot').forEach(d=>d.classList.remove('active'));
+  document.querySelector('.td-'+t).classList.add('active');
+  localStorage.setItem('nbody-theme',t);
+  rebuildCharts();
+}
+(function(){
+  const saved=localStorage.getItem('nbody-theme')||'cosmic';
+  setTheme(saved);
+})();
+
+/* ═══ SLIDER WIRING ══════════════════════════════════════ */
+const dtMap=[0.0001,0.0002,0.0005,0.001,0.002,0.005,0.01,0.02,0.05,
+             0.1,0.2,0.5,1.0,2.0,5.0,10.0,20.0,50.0,100.0,500.0];
+function sliderUpdate(el,lblId,fmt,cssId){
+  const v=+el.value;
+  document.getElementById(lblId).textContent=fmt(v);
+  const pct=((v-+el.min)/(+el.max-+el.min)*100)+'%';
+  document.querySelector(cssId).style.setProperty('--pct',pct);
+  refreshInfoCards();
+}
+function dtUpdate(el){
+  const idx=+el.value-1;
+  const v=dtMap[Math.min(idx,dtMap.length-1)];
+  document.getElementById('dt-lbl').textContent=v;
+  const pct=((+el.value-1)/19*100)+'%';
+  el.style.setProperty('--pct',pct);
+}
+function getDt(){
+  const idx=+document.getElementById('sl-dt').value-1;
+  return dtMap[Math.min(idx,dtMap.length-1)];
+}
+function getParams(){
+  return{
+    n:     +document.getElementById('sl-n').value,
+    steps: +document.getElementById('sl-steps').value,
+    dt:    getDt(),
+    np:    +document.getElementById('sl-np').value,
+    ic:    +document.getElementById('sel-ic').value,
+  };
+}
+function refreshInfoCards(){
+  const p=getParams();
+  document.getElementById('ic-n').textContent   = p.n.toLocaleString();
+  document.getElementById('ic-steps').textContent = p.steps;
+  document.getElementById('s-ranks').textContent  = p.np;
+  document.getElementById('s-pairs').textContent  = (p.n*p.n/1e6).toFixed(1)+'M';
+  totalSteps=p.steps;
+  // IC sub label
+  const icLabels=['Plummer sphere','Rotating disk','Galaxy collision','Uniform random'];
+  document.querySelector('#pane-0 .isub, .info-card .isub') ;
+}
+// init sliders visually
+['sl-n','sl-steps','sl-np'].forEach(id=>{
+  const el=document.getElementById(id);
+  const pct=((+el.value-+el.min)/(+el.max-+el.min)*100)+'%';
+  el.style.setProperty('--pct',pct);
+});
+dtUpdate(document.getElementById('sl-dt'));
+refreshInfoCards();
+
+/* ═══ TABS ═══════════════════════════════════════════════ */
+function setTab(i){
+  activeTab=i;
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.pane').forEach((p,j)=>p.classList.toggle('active',i===j));
+  if(i===0) requestAnimationFrame(drawGalaxy);
+}
+
+/* ═══ CHARTS SETUP ═══════════════════════════════════════ */
+Chart.defaults.font.family="'JetBrains Mono',monospace";
+Chart.defaults.font.size=11;
+
+function cssVar(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+
+function makeChart(id,type,datasets,xLabel='Step'){
+  const ctx=document.getElementById(id);
+  if(!ctx) return null;
+  return new Chart(ctx,{
+    type,
+    data:{labels:[],datasets},
+    options:{
+      animation:{duration:0},
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:cssVar('--muted2'),boxWidth:10,padding:14}}},
+      scales:{
+        x:{title:{display:true,text:xLabel,color:cssVar('--muted2')},
+           grid:{color:cssVar('--border')},ticks:{color:cssVar('--muted2')}},
+        y:{grid:{color:cssVar('--border')},ticks:{color:cssVar('--muted2')}},
+      },
+    },
+  });
+}
+function makeScatterChart(id,datasets){
+  const ctx=document.getElementById(id);
+  if(!ctx) return null;
+  return new Chart(ctx,{
+    type:'scatter',
+    data:{datasets},
+    options:{
+      animation:{duration:0},responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:cssVar('--muted2'),boxWidth:10}}},
+      scales:{
+        x:{grid:{color:cssVar('--border')},ticks:{color:cssVar('--muted2')}},
+        y:{grid:{color:cssVar('--border')},ticks:{color:cssVar('--muted2')}},
+      },
+    },
+  });
+}
+
+function rebuildCharts(){
+  Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});
+  charts={};
+  const a1=cssVar('--a1'),a2=cssVar('--a2'),a3=cssVar('--a3'),a4=cssVar('--a4'),a5=cssVar('--a5');
+  const mk=(c,bw=1.5,pr=2)=>({borderColor:c,backgroundColor:'transparent',borderWidth:bw,pointRadius:pr,tension:.3});
+  charts.energy = makeChart('chart-energy','line',[
+    {...mk(a1),label:'KE',data:[]},
+    {...mk(a2),label:'PE',data:[]},
+    {...mk(a3,2,2),label:'TE',data:[]},
+  ]);
+  charts.teDev = makeChart('chart-te-dev','line',[
+    {...mk(a4,2,2),label:'ΔTE / TE₀ (%)',data:[]},
+  ]);
+  charts.mom = makeChart('chart-mom','line',[
+    {...mk(a4),label:'Mom X',data:[]},
+    {...mk(a5),label:'Mom Y',data:[]},
+    {...mk(a2),label:'Mom Z',data:[]},
+  ]);
+  charts.perf = makeChart('chart-perf','line',[
+    {...mk(a1,2,3),backgroundColor:'rgba(79,142,255,0.05)',fill:true,label:'GFLOPS',data:[]},
+  ]);
+  charts.phase = makeScatterChart('chart-phase',[
+    {label:'KE vs PE',data:[],pointBackgroundColor:a1,pointRadius:3,showLine:false},
+  ]);
+  charts.virial = makeChart('chart-virial','line',[
+    {...mk(a3,2,2),label:'2KE/|PE| (virial)',data:[]},
+    {borderColor:a5,backgroundColor:'transparent',borderWidth:1,borderDash:[6,3],
+     label:'Virial equilibrium (=1)',data:[],pointRadius:0},
+  ]);
+}
+rebuildCharts();
+
+/* ═══ GALAXY CANVAS ═══════════════════════════════════════ */
+const COLORS=['#4f8eff','#a855f7','#06ffa5','#ff6b6b','#ffd93d','#06b6d4','#ec4899','#f97316'];
+
+function initTrails(n){
+  trails={};
+  const nb=Math.min(n,8);
+  for(let i=0;i<nb;i++) trails['b'+i]=[];
+}
+
+function drawGalaxy(){
+  const canvas=document.getElementById('galaxy-canvas');
+  if(!canvas) return;
+  const W=canvas.offsetWidth, H=canvas.offsetHeight;
+  if(canvas.width!==W){canvas.width=W;canvas.height=H;}
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle=cssVar('--bg');
+  ctx.fillRect(0,0,W,H);
+
+  /* star field bg */
+  if(!canvas._stars){
+    canvas._stars=[];
+    for(let i=0;i<80;i++)
+      canvas._stars.push([Math.random()*W,Math.random()*H,Math.random()*1.5+0.2]);
+  }
+  canvas._stars.forEach(s=>{
+    ctx.beginPath();
+    ctx.arc(s[0],s[1],s[2],0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.35)';
+    ctx.fill();
+  });
+
+  if(lastResults.length<2){
+    ctx.fillStyle=cssVar('--muted2');
+    ctx.font="12px 'JetBrains Mono',monospace";
+    ctx.textAlign='center';
+    ctx.fillText('Start a simulation to see galaxy motion',W/2,H/2);
+    return;
+  }
+
+  const cx=W/2, cy=H/2;
+  /* auto-scale from data range */
+  let maxR=0;
+  Object.values(trails).forEach(tr=>tr.forEach(p=>{
+    maxR=Math.max(maxR,Math.abs(p.x),Math.abs(p.y));
+  }));
+  const scale=maxR>0?Math.min(W,H)*0.42/maxR:50;
+
+  const keys=Object.keys(trails);
+  keys.forEach((k,ki)=>{
+    const pts=trails[k];
+    if(pts.length<2) return;
+    const col=COLORS[ki%COLORS.length];
+    /* trail */
+    ctx.beginPath();
+    pts.forEach((p,i)=>{
+      const px=cx+p.x*scale, py=cy-p.y*scale;
+      i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+    });
+    ctx.strokeStyle=col+'44';
+    ctx.lineWidth=1;
+    ctx.stroke();
+    /* glow dot */
+    const last=pts[pts.length-1];
+    const lx=cx+last.x*scale, ly=cy-last.y*scale;
+    const grad=ctx.createRadialGradient(lx,ly,0,lx,ly,8);
+    grad.addColorStop(0,col);
+    grad.addColorStop(1,'transparent');
+    ctx.beginPath();ctx.arc(lx,ly,8,0,Math.PI*2);
+    ctx.fillStyle=grad;ctx.fill();
+    ctx.beginPath();ctx.arc(lx,ly,2.5,0,Math.PI*2);
+    ctx.fillStyle='#fff';ctx.fill();
+  });
+  /* axis */
+  ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cx,0);ctx.lineTo(cx,H);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(W,cy);ctx.stroke();
+}
+
+/* ═══ RUN / STOP ═════════════════════════════════════════ */
+async function startSim(){
+  const p=getParams();
+  totalSteps=p.steps;
+  userStopped=false;
+  initTrails(p.n);
+  lastResults=[];
+
+  /* reset UI */
+  logOffset=0;
+  document.getElementById('terminal').innerHTML=
+    `<span class="t-muted">$ </span><span class="t-cmd">mpirun -np ${p.np} ./nbody ${p.n} ${p.steps} ${p.dt} ${p.ic}</span>\n`;
+  Object.values(charts).forEach(c=>{
+    if(!c) return;
+    c.data.labels=[];
+    c.data.datasets.forEach(d=>{d.data=[];});
+    c.update('none');
+  });
+  document.getElementById('prog-fill').style.width='0%';
+  document.getElementById('prog-pct').textContent='0%';
+
+  try{
+    const r=await fetch(`${API}/run`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(p),
+    });
+    if(!r.ok){
+      const d=await r.json();
+      showErrorModal(d.error||'Server error');
+      return;
+    }
+    const d=await r.json();
+    if(d.error){showErrorModal(d.error);return;}
+
+    simRunning=true;
+    setRunning(true);
+    elapsedSec=0;
+    clearInterval(elapsedTimer);
+    elapsedTimer=setInterval(()=>{
+      elapsedSec++;
+      document.getElementById('s-elapsed').textContent=elapsedSec+'s';
+    },1000);
+
+    document.getElementById('s-ranks').textContent=p.np;
+    document.getElementById('s-mode').textContent=p.np>1?`${p.np}×MPI`:'MPI';
+
+    clearInterval(pollTimer);
+    pollTimer=setInterval(pollAll,700);
+  }catch(e){
+    showErrorModal('Cannot reach backend.\n\nRun: python3 dashboard/server.py');
+  }
+}
+
+async function stopSim(){
+  userStopped=true;
+  try{
+    await fetch(`${API}/stop`,{method:'POST'});
+  }catch(e){}
+  clearInterval(pollTimer);
+  clearInterval(elapsedTimer);
+  setRunning(false);
+  showModal('modal-stopped');
+}
+
+function setRunning(running){
+  simRunning=running;
+  document.getElementById('btn-run').disabled=running;
+  document.getElementById('btn-run').classList.toggle('pulse',running);
+  document.getElementById('btn-stop').disabled=!running;
+  const badge=document.getElementById('status-badge');
+  badge.className='status-badge'+(running?' running':'');
+  document.getElementById('status-txt').textContent=running?'RUNNING':'IDLE';
+}
+
+/* ═══ POLLING ════════════════════════════════════════════ */
+async function pollAll(){
+  await pollOutput();
+  await pollResults();
+  await checkStatus();
+}
+
+async function pollOutput(){
+  try{
+    const r=await fetch(`${API}/output?offset=${logOffset}`);
+    const d=await r.json();
+    const term=document.getElementById('terminal');
+    d.lines.forEach(line=>{
+      logOffset++;
+      const div=document.createElement('div');
+      if(line.startsWith('$')||line.startsWith('>>')) div.className='t-cmd';
+      else if(line.includes('ERROR')||line.includes('error')) div.className='t-err';
+      else if(line.includes('DONE')||line.includes('SUCCESS')||line.includes('✓')) div.className='t-done';
+      else if(line.includes('[step')) div.className='t-step';
+      else if(line.includes('[INFO')||line.includes('[BUILD')) div.className='t-info';
+      else if(line.includes('stopped')) div.className='t-stop';
+      else div.className='t-muted';
+      div.textContent=line;
+      term.appendChild(div);
+    });
+    term.scrollTop=term.scrollHeight;
+
+    /* parse live stats from stdout */
+    d.lines.forEach(line=>{
+      const sm=line.match(/\[step\s+(\d+)\/(\d+)\].*GFLOPS=([\d.]+)/);
+      if(sm){
+        const st=+sm[1], tot=+sm[2], gf=+sm[3];
+        tickVal('s-step', st+'/'+tot);
+        tickVal('s-gflops', gf.toFixed(1));
+        tickVal('ic-gflops', gf.toFixed(2));
+        /* progress */
+        const pct=Math.round(st/tot*100);
+        document.getElementById('prog-fill').style.width=pct+'%';
+        document.getElementById('prog-pct').textContent=pct+'%';
+      }
+      if(line.includes('GPU')) tickVal('s-gpu','CUDA');
+      if(line.includes('CPU')) tickVal('s-gpu','CPU');
+    });
+
+    if(d.done&&!userStopped){
+      clearInterval(pollTimer);
+      clearInterval(elapsedTimer);
+      setRunning(false);
+      setTimeout(()=>showSuccessModal(),600);
+    }
+    if(d.error&&!userStopped){
+      clearInterval(pollTimer);
+      clearInterval(elapsedTimer);
+      setRunning(false);
+      showErrorModal(d.error);
+    }
+  }catch(e){}
+}
+
+async function pollResults(){
+  try{
+    const r=await fetch(`${API}/results`);
+    const d=await r.json();
+    if(!d.rows.length) return;
+    lastResults=d.rows;
+
+    /* charts */
+    const labels=d.rows.map(r=>Math.round(r.step));
+    const first_te=d.rows[0]?.te||0;
+
+    pushChart(charts.energy,labels,
+      [d.rows.map(r=>r.ke), d.rows.map(r=>r.pe), d.rows.map(r=>r.te)]);
+    pushChart(charts.teDev,labels,
+      [d.rows.map(r=>first_te?((r.te-first_te)/Math.abs(first_te)*100):0)]);
+    pushChart(charts.mom,labels,
+      [d.rows.map(r=>r.mom_x),d.rows.map(r=>r.mom_y),d.rows.map(r=>r.mom_z)]);
+    pushChart(charts.perf,labels,
+      [d.rows.map(()=>d.summary.gflops||0)]);
+
+    /* phase space */
+    if(charts.phase){
+      charts.phase.data.datasets[0].data=d.rows.map(r=>({x:r.ke,y:r.pe}));
+      charts.phase.update('none');
+    }
+    /* virial */
+    if(charts.virial){
+      charts.virial.data.labels=labels;
+      charts.virial.data.datasets[0].data=d.rows.map(r=>r.pe?Math.abs(2*r.ke/r.pe):0);
+      charts.virial.data.datasets[1].data=labels.map(()=>1);
+      charts.virial.update('none');
+    }
+
+    /* galaxy trails */
+    d.rows.forEach(row=>{
+      for(let i=0;i<5;i++){
+        const key=`b${i}`;
+        const x=row[`b${i}x`], y=row[`b${i}y`];
+        if(x===undefined||x===0) continue;
+        if(!trails[key]) trails[key]=[];
+        trails[key].push({x,y});
+        if(trails[key].length>maxTrail) trails[key].shift();
+      }
+    });
+    if(activeTab===0) drawGalaxy();
+
+    /* info cards */
+    const drift=d.summary.energy_drift;
+    tickVal('ic-drift', drift.toFixed(3)+'%');
+    tickVal('s-drift', drift.toFixed(4)+'%');
+    document.getElementById('s-drift').className='sv '+(drift<1?'c3':drift<5?'c5':'c4');
+    const lastRow=d.rows[d.rows.length-1];
+    if(lastRow) tickVal('ic-simtime', lastRow.time_s?.toFixed(3)||'—');
+    if(d.summary.gflops) tickVal('ic-gflops',d.summary.gflops.toFixed(2));
+
+    /* performance bars */
+    const gf=d.summary.gflops||0;
+    const maxGf=20;
+    setPerfBar('pb-force','pv-force',Math.min(gf/maxGf,1)*100, gf.toFixed(2)+' GF');
+    setPerfBar('pb-comm','pv-comm',5,'~5%');
+    setPerfBar('pb-int','pv-int',2,'<2%');
+
+    /* data table */
+    const tbody=document.getElementById('table-body');
+    tbody.innerHTML=d.rows.slice(-40).reverse().map(row=>`
+      <tr>
+        <td>${Math.round(row.step)}</td>
+        <td>${(row.time_s||0).toFixed(4)}</td>
+        <td>${fmtE(row.ke)}</td>
+        <td>${fmtE(row.pe)}</td>
+        <td>${fmtE(row.te)}</td>
+        <td>${fmtE(row.mom_x)}</td>
+        <td>${fmtE(row.mom_y)}</td>
+        <td style="color:var(--a1)">${(row.gflops||d.summary.gflops||0).toFixed(2)}</td>
+      </tr>`).join('');
+  }catch(e){}
+}
+
+async function checkStatus(){
+  try{
+    const r=await fetch(`${API}/status`);
+    const d=await r.json();
+    const bb=document.getElementById('binary-txt');
+    bb.textContent='BINARY: '+(d.binary_ok?'✓ READY':'✗ NOT BUILT');
+    bb.parentElement.style.color=d.binary_ok?'var(--a3)':'var(--a4)';
+    if(!d.running&&simRunning&&!userStopped&&d.done){
+      clearInterval(pollTimer);
+      clearInterval(elapsedTimer);
+      setRunning(false);
+      setTimeout(showSuccessModal,500);
+    }
+  }catch(e){
+    document.getElementById('status-txt').textContent='OFFLINE';
+  }
+}
+
+/* ═══ HELPERS ════════════════════════════════════════════ */
+function pushChart(chart,labels,datasetsData){
+  if(!chart) return;
+  chart.data.labels=labels;
+  datasetsData.forEach((data,i)=>{
+    if(chart.data.datasets[i]) chart.data.datasets[i].data=data;
+  });
+  chart.update('none');
+}
+function fmtE(v){
+  if(v===undefined||v===null) return '—';
+  return (+v).toExponential(3);
+}
+function tickVal(id,val){
+  const el=document.getElementById(id);
+  if(!el) return;
+  if(el.textContent!==String(val)){
+    el.textContent=val;
+    el.classList.remove('tick');
+    void el.offsetWidth;
+    el.classList.add('tick');
+  }
+}
+function setPerfBar(barId,valId,pct,label){
+  document.getElementById(barId).style.width=pct+'%';
+  document.getElementById(valId).textContent=label;
+}
+function clearTerm(){
+  document.getElementById('terminal').innerHTML=
+    '<span class="t-muted">Terminal cleared.</span>';
+  logOffset=0;
+}
+async function clearAll(){
+  if(simRunning){alert('Stop the simulation first.');return;}
+  await fetch(`${API}/clear`,{method:'POST'}).catch(()=>{});
+  lastResults=[];
+  trails={};
+  Object.values(charts).forEach(c=>{
+    if(!c) return;
+    c.data.labels=[];c.data.datasets.forEach(d=>d.data=[]);c.update('none');
+  });
+  clearTerm();
+  ['s-gflops','s-step','s-drift','s-elapsed','ic-gflops','ic-drift','ic-simtime'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent='—';
+  });
+  document.getElementById('prog-fill').style.width='0%';
+  document.getElementById('prog-pct').textContent='0%';
+  drawGalaxy();
+}
+
+/* ═══ MODALS ═════════════════════════════════════════════ */
+function showModal(id){
+  document.getElementById(id).classList.add('show');
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove('show');
+}
+async function showSuccessModal(){
+  const r=await fetch(`${API}/results`).then(r=>r.json()).catch(()=>({rows:[],summary:{}}));
+  const s=r.summary||{};
+  document.getElementById('modal-sub-text').textContent=
+    `Completed ${s.steps||'—'} snapshots · Elapsed ${elapsedSec}s`;
+  document.getElementById('modal-stats').innerHTML=`
+    <div class="modal-stat"><div class="msl">PEAK GFLOPS</div><div class="msv">${(s.gflops||0).toFixed(2)}</div></div>
+    <div class="modal-stat"><div class="msl">ENERGY DRIFT</div><div class="msv">${(s.energy_drift||0).toFixed(3)}%</div></div>
+    <div class="modal-stat"><div class="msl">ELAPSED TIME</div><div class="msv">${elapsedSec}s</div></div>
+    <div class="modal-stat"><div class="msl">BODIES</div><div class="msv">${getParams().n.toLocaleString()}</div></div>
+  `;
+  showModal('modal-success');
+  spawnConfetti();
+}
+function showErrorModal(msg){
+  document.getElementById('modal-error-text').textContent=msg;
+  showModal('modal-error');
+}
+function spawnConfetti(){
+  const wrap=document.getElementById('confetti');
+  wrap.innerHTML='';
+  const colors=[cssVar('--a1'),cssVar('--a2'),cssVar('--a3'),cssVar('--a4'),cssVar('--a5')];
+  for(let i=0;i<60;i++){
+    const d=document.createElement('div');
+    d.className='c-particle';
+    d.style.cssText=`
+      left:${Math.random()*100}vw;
+      top:${Math.random()*20-20}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-delay:${Math.random()*2}s;
+      animation-duration:${2+Math.random()*2}s;
+      transform:rotate(${Math.random()*360}deg);
+    `;
+    wrap.appendChild(d);
+  }
+  setTimeout(()=>wrap.innerHTML='',5000);
+}
+
+/* close modal on overlay click */
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{if(e.target===o) o.classList.remove('show');});
+});
+
+/* ═══ INIT ═══════════════════════════════════════════════ */
+checkStatus();
+setInterval(checkStatus,5000);
+requestAnimationFrame(drawGalaxy);
+</script>
+</body>
+</html>
